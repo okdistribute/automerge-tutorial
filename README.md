@@ -3,5 +3,6 @@ The absolute most minimal example of using Automerge
 
 ```
 npm install
-npm start
+npm i -g budo
+budo index.js --live
 ```
