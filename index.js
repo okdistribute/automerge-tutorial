@@ -5,18 +5,14 @@ let channel = new BroadcastChannel(docId)
 
 // Initialize Document
 let doc
-let exists = localStorage.getItem(docId)
 let observable = new Automerge.Observable()
 
-if (exists) {
-	let parsed = Uint8Array.from(Buffer.from(exists, 'base64'))
+let localCopy = localStorage.getItem(docId)
+if (localCopy) {
+	let parsed = Uint8Array.from(Buffer.from(localCopy, 'base64'))
 	doc = Automerge.load(parsed, { observable })
 } else {
 	doc = Automerge.init({ observable })
-	doc = Automerge.change(doc, doc => {
-		doc.answers = []
-	})
-	save(doc)
 }
 
 // DOM elements
@@ -37,6 +33,7 @@ function clickAnswer (doc, index) {
 function addAnswer (doc, value) {
 	return Automerge.change(doc, (doc) => {
 		if (!doc.question) doc.question = value
+		if (!doc.answers) doc.answers = []
 		else {
 			doc.answers.push({
 				value: input.value,
@@ -67,12 +64,12 @@ function save (doc) {
 	localStorage.setItem(docId, string)
 }
 
-function render (doc) {
-	question.innerHTML = doc.question ? doc.question : 'New Survey'
+function render (newDoc) {
+	question.innerHTML = newDoc.question ? newDoc.question : 'New Survey'
 	input.setAttribute('type', 'text')
-	button.innerText = doc.question ? 'Add Answer': 'Create Question' 
+	button.innerText = newDoc.question ? 'Add Answer': 'Create Question' 
 
-	doc.answers.forEach((answer, index) => {
+	newDoc.answers && newDoc.answers.forEach((answer, index) => {
 		let objId = Automerge.getObjectId(answer)
 		let answerEl = document.getElementById(objId) 
 		if (!answerEl) {
@@ -82,12 +79,12 @@ function render (doc) {
 		}
 		answerEl.innerHTML = `${answer.value} ${answer.count}`
 		answerEl.onclick = (ev) => {
-			doc = clickAnswer(doc, index)
+			doc = clickAnswer(newDoc, index)
 		}
 	})
 
 	button.onclick = (ev) => {
-		doc = addAnswer(doc, input.value)
+		doc = addAnswer(newDoc, input.value)
 		input.value = null
 	}
 }
