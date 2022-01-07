@@ -1,19 +1,25 @@
 let Automerge = require('automerge')
 
 let docId = window.location.hash
-let exists = localStorage.getItem(docId)
+let channel = new BroadcastChannel(docId)
 
-let observable = new Automerge.Observable()
+// Initialize Document
 let doc
+let exists = localStorage.getItem(docId)
+let observable = new Automerge.Observable()
 
 if (exists) {
 	let parsed = Uint8Array.from(Buffer.from(exists, 'base64'))
 	doc = Automerge.load(parsed, { observable })
-	console.log('got answers', doc.answers.length)
 } else {
-	doc = Automerge.from({ answers: []}, { observable })
+	doc = Automerge.init({ observable })
+	doc = Automerge.change(doc, doc => {
+		doc.answers = []
+	})
+	save(doc)
 }
 
+// DOM elements
 let surveyContainer = document.createElement('div')
 let question = document.createElement('h1')
 let link = document.createElement('h3')
@@ -21,6 +27,45 @@ let answersContainer = document.createElement('ul')
 let input = document.createElement('input')
 let button = document.createElement('button')
 button.setAttribute('type', 'submit')
+
+function clickAnswer (doc, index) {
+	return Automerge.change(doc, doc => {
+		doc.answers[index].count.increment()
+	})
+}
+
+function addAnswer (doc, value) {
+	return Automerge.change(doc, (doc) => {
+		if (!doc.question) doc.question = value
+		else {
+			doc.answers.push({
+				value: input.value,
+				count: new Automerge.Counter()
+			})
+		}
+	})
+}
+
+surveyContainer.appendChild(question)
+surveyContainer.appendChild(answersContainer)
+surveyContainer.appendChild(link)
+surveyContainer.appendChild(input)
+surveyContainer.appendChild(button)
+document.body.appendChild(surveyContainer)
+
+render(doc)
+
+observable.observe(doc, (diff, before, after, local, changes) => {
+	render(after)
+	save(after)
+	if (local) broadcastChanges(changes)
+})
+
+function save (doc) {
+	let bytes = Automerge.save(doc)
+	let string = Buffer.from(bytes).toString('base64')
+	localStorage.setItem(docId, string)
+}
 
 function render (doc) {
 	question.innerHTML = doc.question ? doc.question : 'New Survey'
@@ -37,40 +82,29 @@ function render (doc) {
 		}
 		answerEl.innerHTML = `${answer.value} ${answer.count}`
 		answerEl.onclick = (ev) => {
-			console.log('clicked', answer.value)
-			doc = Automerge.change(doc, doc => {
-				doc.answers[index].count.increment()
-			})
+			doc = clickAnswer(doc, index)
 		}
 	})
 
 	button.onclick = (ev) => {
-		doc = Automerge.change(doc, (doc) => {
-			if (!doc.question) doc.question = input.value
-			else {
-				doc.answers.push({
-					value: input.value,
-					count: new Automerge.Counter()
-				})
-			}
-			input.value = null
-		})
+		doc = addAnswer(doc, input.value)
+		input.value = null
 	}
 }
 
-surveyContainer.appendChild(question)
-surveyContainer.appendChild(answersContainer)
-surveyContainer.appendChild(link)
-surveyContainer.appendChild(input)
-surveyContainer.appendChild(button)
-document.body.appendChild(surveyContainer)
+channel.onmessage = function (ev) {
+	let payload = ev.data
+	if (payload.actorId === Automerge.getActorId(doc)) return // this is from the same tab
 
-render(doc)
+	let [newDoc, patch] = Automerge.applyChanges(doc, payload.changes)
+	doc = newDoc
+	save(newDoc)
+}
 
-observable.observe(doc, (diff, before, after, local, changes) => {
-	let bytes = Automerge.save(after)
-	let string = Buffer.from(bytes).toString('base64')
-	console.log('saved', after.answers.length)
-	localStorage.setItem(docId, string)
-	render(after)
-})
+function broadcastChanges (changes) {
+	let actorId = Automerge.getActorId(doc)
+	channel.postMessage({
+		actorId,
+		changes
+	})
+}
