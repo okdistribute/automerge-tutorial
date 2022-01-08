@@ -7,9 +7,9 @@ let observable = new Automerge.Observable()
 let doc
 let localCopy = await localforage.getItem(docId)
 if (localCopy) {
-	doc = Automerge.load(localCopy, { observable })
+    doc = Automerge.load(localCopy, { observable })
 } else {
-	doc = Automerge.init({ observable })
+    doc = Automerge.init({ observable })
 }
 
 // DOM elements
@@ -38,13 +38,13 @@ function render (newDoc) {
         if (!itemEl) {
             itemEl = document.createElement('li')
             itemEl.setAttribute("id", objId)
-			var label = document.createElement('label')
-			label.innerHTML = item.value
-			itemEl.appendChild(label)
+            var label = document.createElement('label')
+            label.innerHTML = item.value
+            itemEl.appendChild(label)
             itemsDiv.appendChild(itemEl)
         }
 
-		itemEl.className = item.done ? 'completed' : ''
+        itemEl.className = item.done ? 'completed' : ''
 
         itemEl.onclick = (ev) => {
             doc = toggle(newDoc, index)
@@ -52,7 +52,7 @@ function render (newDoc) {
     })
 
     form.onsubmit = (ev) => {
-		ev.preventDefault()
+        ev.preventDefault()
         doc = add(newDoc, input.value)
         input.value = null
     }
