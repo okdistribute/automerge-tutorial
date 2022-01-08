@@ -2,9 +2,8 @@ let docId = window.location.hash
 let channel = new BroadcastChannel(docId)
 
 // Initialize Document
-let observable = new Automerge.Observable()
-
 let doc
+let observable = new Automerge.Observable()
 let localCopy = await localforage.getItem(docId)
 if (localCopy) {
     doc = Automerge.load(localCopy, { observable })
@@ -70,6 +69,7 @@ channel.onmessage = function (ev) {
     save(doc)
 }
 
+// typically, you'd have one sync state for each peer
 let syncState = Automerge.initSyncState()
 
 function updatePeers (doc) {
