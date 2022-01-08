@@ -84,11 +84,9 @@ function toggle (doc, index) {
 function add (doc, value) {
     return Automerge.change(doc, (doc) => {
         if (!doc.items) doc.items = []
-        else {
-            doc.items.push({
-                value: value,
-                done: false
-            })
-        }
+        doc.items.push({
+            value: value,
+            done: false
+        })
     })
 }
