@@ -23,7 +23,7 @@ render(doc)
 observable.observe(doc, (diff, before, after, local, changes) => {
     render(after)
     save(after)
-    if (local) broadcastChanges(changes)
+    if (local) updatePeers(after)
 })
 
 function save (doc) {
@@ -60,19 +60,31 @@ function render (newDoc) {
 
 channel.onmessage = function (ev) {
     let payload = ev.data
-    if (payload.actorId === Automerge.getActorId(doc)) return // this is from the same tab
 
-    let [newDoc, patch] = Automerge.applyChanges(doc, payload.changes)
+    // this message is from the same actor, ignore it
+    if (payload.actorId === Automerge.getActorId(doc)) return 
+    let [ newDoc, newSyncState,  ] = Automerge.receiveSyncMessage(doc, syncState, payload.msg)
     doc = newDoc
-    save(newDoc)
+    syncState = newSyncState
+    updatePeers(doc)
+    save(doc)
 }
 
-function broadcastChanges (changes) {
+let syncState = Automerge.initSyncState()
+
+function updatePeers (doc) {
     let actorId = Automerge.getActorId(doc)
-    channel.postMessage({
-        actorId,
-        changes
-    })
+    let [nextSyncState, msg] = Automerge.generateSyncMessage(
+        doc, 
+        syncState
+    )
+    syncState = nextSyncState
+    if (msg) {
+        channel.postMessage({
+            actorId,
+            msg: msg
+        })
+    }
 }
 
 function toggle (doc, index) {
