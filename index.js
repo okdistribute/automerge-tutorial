@@ -1,55 +1,23 @@
-let Automerge = require('automerge')
-
 let docId = window.location.hash
 let channel = new BroadcastChannel(docId)
 
 // Initialize Document
-let doc
 let observable = new Automerge.Observable()
 
-let localCopy = localStorage.getItem(docId)
+let doc
+let localCopy = await localforage.getItem(docId)
 if (localCopy) {
-    let parsed = Uint8Array.from(Buffer.from(localCopy, 'base64'))
-    doc = Automerge.load(parsed, { observable })
+	doc = Automerge.load(localCopy, { observable })
 } else {
-    doc = Automerge.init({ observable })
+	doc = Automerge.init({ observable })
 }
 
 // DOM elements
-let surveyContainer = document.createElement('div')
-let question = document.createElement('h1')
-let link = document.createElement('h3')
-let answersContainer = document.createElement('ul')
-let input = document.createElement('input')
-let button = document.createElement('button')
-button.setAttribute('type', 'submit')
-
-function clickAnswer (doc, index) {
-    return Automerge.change(doc, doc => {
-        doc.answers[index].count.increment()
-    })
-}
-
-function addAnswer (doc, value) {
-    return Automerge.change(doc, (doc) => {
-        if (!doc.question) doc.question = value
-        if (!doc.answers) doc.answers = []
-        else {
-            doc.answers.push({
-                value: input.value,
-                count: new Automerge.Counter()
-            })
-        }
-    })
-}
-
-surveyContainer.appendChild(question)
-surveyContainer.appendChild(answersContainer)
-surveyContainer.appendChild(link)
-surveyContainer.appendChild(input)
-surveyContainer.appendChild(button)
-document.body.appendChild(surveyContainer)
-
+let container = document.getElementById('todoapp')
+let link = document.getElementById('title')
+let itemsDiv = document.getElementById('todo-list')
+let input = document.querySelector('input')
+let form = document.getElementById('form')
 render(doc)
 
 observable.observe(doc, (diff, before, after, local, changes) => {
@@ -60,31 +28,32 @@ observable.observe(doc, (diff, before, after, local, changes) => {
 
 function save (doc) {
     let bytes = Automerge.save(doc)
-    let string = Buffer.from(bytes).toString('base64')
-    localStorage.setItem(docId, string)
+    localforage.setItem(docId, bytes).catch(err => console.error(err))
 }
 
 function render (newDoc) {
-    question.innerHTML = newDoc.question ? newDoc.question : 'New Survey'
-    input.setAttribute('type', 'text')
-    button.innerText = newDoc.question ? 'Add Answer': 'Create Question' 
-
-    newDoc.answers && newDoc.answers.forEach((answer, index) => {
-        let objId = Automerge.getObjectId(answer)
-        let answerEl = document.getElementById(objId) 
-        if (!answerEl) {
-            answerEl = document.createElement('li')
-            answerEl.id = objId
-            answersContainer.appendChild(answerEl)
+    newDoc.items && newDoc.items.forEach((item, index) => {
+        let objId = Automerge.getObjectId(item)
+        let itemEl = document.getElementById(objId) 
+        if (!itemEl) {
+            itemEl = document.createElement('li')
+            itemEl.setAttribute("id", objId)
+			var label = document.createElement('label')
+			label.innerHTML = item.value
+			itemEl.appendChild(label)
+            itemsDiv.appendChild(itemEl)
         }
-        answerEl.innerHTML = `${answer.value} ${answer.count}`
-        answerEl.onclick = (ev) => {
-            doc = clickAnswer(newDoc, index)
+
+		itemEl.className = item.done ? 'completed' : ''
+
+        itemEl.onclick = (ev) => {
+            doc = toggle(newDoc, index)
         }
     })
 
-    button.onclick = (ev) => {
-        doc = addAnswer(newDoc, input.value)
+    form.onsubmit = (ev) => {
+		ev.preventDefault()
+        doc = add(newDoc, input.value)
         input.value = null
     }
 }
@@ -103,5 +72,23 @@ function broadcastChanges (changes) {
     channel.postMessage({
         actorId,
         changes
+    })
+}
+
+function toggle (doc, index) {
+    return Automerge.change(doc, doc => {
+        doc.items[index].done = !doc.items[index].done
+    })
+}
+
+function add (doc, value) {
+    return Automerge.change(doc, (doc) => {
+        if (!doc.items) doc.items = []
+        else {
+            doc.items.push({
+                value: value,
+                done: false
+            })
+        }
     })
 }
