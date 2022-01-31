@@ -1,6 +1,6 @@
 The absolute most minimal example of using Automerge.
 
-See the step-by-step tutorial on the [Automerge docs](https://automerge.github.io/docs/docs/tutorial/introduction)
+See the step-by-step tutorial on the [Automerge docs](https://automerge.github.io/docs/tutorial/introduction)
 
 ## Usage
 Use your favorite HTTP server.
