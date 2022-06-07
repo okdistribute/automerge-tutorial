@@ -13,7 +13,7 @@ python -m SimpleHTTPServer
 or
 
 ```
-npm -i g http-server
+npm i -g http-server
 http-server .
 ```
 
